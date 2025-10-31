@@ -1,104 +1,89 @@
 import os
-import sys
-import logging
-from typing import Tuple
+from typing import Optional
+
+import bot
+from sqlalchemy import create_engine
+from sqlalchemy.engine.url import make_url
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, scoped_session
+
+from bot import LOGGER, DEFAULT_DATA_DIR
 
 
-def _prepare_data_directory() -> Tuple[str, bool]:
-  """
-  Ensure a writable base directory exists for data that should persist
-  across restarts (e.g. SQLite DB, downloads). Preference order:
-  1. DATA_DIR environment variable.
-  2. /data on POSIX systems (Hugging Face Spaces uses this path).
-  3. A `data` folder inside the current working directory.
-  """
-  candidates = []
-  env_data_dir = os.environ.get("DATA_DIR")
-  if env_data_dir:
-    candidates.append(env_data_dir)
-  if os.name == "posix":
-    candidates.append("/data")
-  candidates.append(os.path.join(os.getcwd(), "data"))
-
-  for candidate in candidates:
-    candidate = os.path.abspath(candidate)
-    try:
-      os.makedirs(candidate, exist_ok=True)
-      return candidate, False
-    except OSError:
-      continue
-
-  return os.getcwd(), True
+DATABASE_URL = bot.DATABASE_URL
 
 
-DEFAULT_DATA_DIR, _data_dir_fallback_used = _prepare_data_directory()
-DEFAULT_DOWNLOAD_DIRECTORY = os.path.join(DEFAULT_DATA_DIR, "downloads")
-LOG_FILE_PATH = os.path.join(DEFAULT_DATA_DIR, "log.txt")
+def _create_session(url_string: str) -> scoped_session:
+  engine_kwargs = {}
+  url = make_url(url_string)
+  if url.drivername == 'sqlite':
+      db_path = url.database or ''
+      db_dir = os.path.dirname(db_path)
+      if db_path and db_dir and not os.path.isdir(db_dir):
+          os.makedirs(db_dir, exist_ok=True)
+      engine_kwargs["connect_args"] = {"check_same_thread": False}
+  engine_kwargs["pool_pre_ping"] = True
+  engine = create_engine(url_string, **engine_kwargs)
+  BASE.metadata.bind = engine
+  BASE.metadata.create_all(engine)
+  return scoped_session(sessionmaker(bind=engine, autoflush=False))
 
-handlers = [logging.StreamHandler()]
-try:
-  handlers.insert(0, logging.FileHandler(LOG_FILE_PATH))
-except OSError as exc:
-  print(f"[bot] Unable to create log file at {LOG_FILE_PATH}: {exc}", file=sys.stderr)
 
-logging.basicConfig(
-    level=logging.INFO,
-    handlers=handlers,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-LOGGER = logging.getLogger(__name__)
-logging.getLogger("pyrogram").setLevel(logging.WARNING)
-
-if _data_dir_fallback_used:
-  LOGGER.warning(
-      'All candidate data directories were unavailable. Falling back to %s',
-      DEFAULT_DATA_DIR,
-  )
-
-ENV = bool(os.environ.get('ENV', False))
-try:
-  if ENV:
-    BOT_TOKEN = os.environ.get('BOT_TOKEN')
-    APP_ID = os.environ.get('APP_ID')
-    API_HASH = os.environ.get('API_HASH')
-    DATABASE_URL = os.environ.get('DATABASE_URL')
-    SUDO_USERS = os.environ.get('SUDO_USERS', '')
-    SUPPORT_CHAT_LINK = os.environ.get('SUPPORT_CHAT_LINK')
-    download_directory_raw = os.environ.get("DOWNLOAD_DIRECTORY", "")
-    G_DRIVE_CLIENT_ID = os.environ.get("G_DRIVE_CLIENT_ID")
-    G_DRIVE_CLIENT_SECRET = os.environ.get("G_DRIVE_CLIENT_SECRET")
-  else:
-    from bot.config import config
-    BOT_TOKEN = config.BOT_TOKEN
-    APP_ID = config.APP_ID
-    API_HASH = config.API_HASH
-    DATABASE_URL = config.DATABASE_URL
-    SUDO_USERS = config.SUDO_USERS
-    SUPPORT_CHAT_LINK = config.SUPPORT_CHAT_LINK
-    download_directory_raw = config.DOWNLOAD_DIRECTORY
-    G_DRIVE_CLIENT_ID = config.G_DRIVE_CLIENT_ID
-    G_DRIVE_CLIENT_SECRET = config.G_DRIVE_CLIENT_SECRET
-
-  if not download_directory_raw or download_directory_raw.strip() in {"./downloads/", "./downloads"}:
-    download_directory_raw = DEFAULT_DOWNLOAD_DIRECTORY
-  DOWNLOAD_DIRECTORY = os.path.abspath(download_directory_raw)
-
-  if not DATABASE_URL:
-    default_sqlite_path = os.path.join(DEFAULT_DATA_DIR, "gdrive.db")
-    DATABASE_URL = f"sqlite:///{default_sqlite_path}"
-    LOGGER.warning(
-        'DATABASE_URL not provided. Falling back to local SQLite database at %s',
-        default_sqlite_path
-    )
-
-  raw_sudo_users = SUDO_USERS or ""
+def _sqlite_fallback_url(original_url: str) -> Optional[str]:
   try:
-    sudo_users_list = {int(x) for x in raw_sudo_users.split() if x.strip()}
-  except ValueError as exc:
-    LOGGER.error('Invalid SUDO_USERS value provided. Please use space separated integers. %s', exc)
-    exit(1)
-  sudo_users_list.add(939425014)
-  SUDO_USERS = list(sudo_users_list)
-except KeyError:
-  LOGGER.error('One or more configuration values are missing exiting now.')
-  exit(1)
+    url = make_url(original_url)
+  except Exception:
+    return None
+  if url.drivername != 'sqlite':
+    return None
+  fallback_path = os.path.join(DEFAULT_DATA_DIR, "gdrive.db")
+  fallback_url = f"sqlite:///{fallback_path}"
+  if fallback_url == original_url:
+    return None
+  return fallback_url
+
+
+def start() -> scoped_session:
+  candidate_urls = [bot.DATABASE_URL]
+  fallback_url = _sqlite_fallback_url(bot.DATABASE_URL)
+  if fallback_url:
+    candidate_urls.append(fallback_url)
+
+  last_exc: Optional[Exception] = None
+  for idx, candidate in enumerate(candidate_urls):
+    is_last_attempt = idx == len(candidate_urls) - 1
+    try:
+      session = _create_session(candidate)
+      if candidate != bot.DATABASE_URL:
+        LOGGER.warning(
+            'DATABASE_URL "%s" is not writable. Falling back to "%s".',
+            bot.DATABASE_URL,
+            candidate,
+        )
+        bot.DATABASE_URL = candidate
+        globals()['DATABASE_URL'] = candidate
+      return session
+    except OSError as exc:
+      last_exc = exc
+      if is_last_attempt:
+        LOGGER.error('Unable to prepare database path for "%s": %s', candidate, exc)
+      else:
+        LOGGER.warning('Unable to prepare database path for "%s": %s', candidate, exc)
+    except Exception as exc:
+      last_exc = exc
+      if is_last_attempt:
+        LOGGER.error('Failed to initialize database engine with url %s: %s', candidate, exc)
+      else:
+        LOGGER.warning('Failed to initialize database engine with url %s: %s', candidate, exc)
+
+  LOGGER.error(
+      'Exiting because the database engine could not be initialized after trying %s.',
+      candidate_urls,
+  )
+  if last_exc:
+    raise SystemExit(1) from last_exc
+  raise SystemExit(1)
+
+
+BASE = declarative_base()
+SESSION = start()
