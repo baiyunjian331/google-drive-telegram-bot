@@ -39,17 +39,26 @@ For quick reference, here is what each file should look like once the markers ar
 gone:
 
 - **`README.md`** – keep the feature checklist item `中文界面提示与指引。` and retain
-  the Replit deployment section introduced upstream. If the README pulled in
-  updates from `main`, make sure both the English content and the localized bullet
-  coexist cleanly without duplicated headings.
+  the Replit deployment section introduced upstream. If you encounter the conflict
+  snippet that toggles between `中文界面提示与指引。` and `提供完整的中文提示信息，优化中文使用体验。`,
+  choose whichever line best matches the product wording you want (the project
+  currently prefers `中文界面提示与指引。`). The important part is to remove the
+  `<<<<<<<` markers and make sure the features list only includes one localized
+  bullet alongside the existing English entries.
 - **`bot/config.py`** – ensure the `Messages` class contains the full set of
   Chinese prompts (欢迎语、帮助文本、报错提示等). No raw conflict markers or leftover
   English fallbacks should remain.
 - **`bot/plugins/authorize.py`** – keep the localized replies for `/auth` and the
   `_token` handler, including the friendly messages for missing codes or flows.
+  When resolving the competing lines around the "正在检查收到的代码" versus "正在验证授权代码"
+  text, pick the phrasing you want to ship (we currently recommend
+  "正在验证授权代码" because it describes the action more clearly) and delete the
+  markers.
 - **`bot/plugins/download.py`** – keep the Chinese guidance messages for missing
   URLs and download status updates, along with the helper that parses custom file
-  names.
+  names. If you see a conflict that pits the `_extract_link_and_filename`
+  implementation against the older command-branch logic, resolve in favor of the
+  helper-based flow so the handler continues to sanitize input consistently.
 
 Edit the files to remove the conflict markers and polish the final Chinese wording
 if needed. The `download.py` and `authorize.py` handlers should continue to use the
