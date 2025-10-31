@@ -30,7 +30,7 @@ class Messages:
 
         f"**Google Drive 授权**\n__发送 /{BotCommands.Authorize[0]} 命令获取授权链接，打开并按提示操作，然后把最终得到的代码发给我。使用 /{BotCommands.Revoke[0]} 可以撤销当前登录的 Google Drive 账号。__\n\n**注意：在完成授权之前，我只会响应 /{BotCommands.Authorize[0]} 命令，因此必须先完成授权！**",
 
-        f"**直链下载**\n__把可直接下载的链接发给我，我会在服务器下载并上传到你的 Google Drive。你可以在链接后使用 ' | ' 与新文件名分隔，以便在上传前重命名。__\n\n**__示例：__**\n```https://example.com/AFileWithDirectDownloadLink.mkv | 新文件名.mkv```\n\n**Telegram 文件**\n__发送 Telegram 文件给我即可上传到你的 Google Drive。注意：Telegram 下载速度较慢，大文件可能需要更长时间。__\n\n**YouTube-DL 支持**\n__使用 youtube-dl 下载。\n命令：/{BotCommands.YtDl[0]} (YouTube 链接或任意 youtube-dl 支持的链接)__",
+        f"**直链下载**\n__把可直接下载的链接发给我，我会在服务器下载并上传到你的 Google Drive。你可以在链接后使用 ' | ' 与新文件名分隔，以便在上传前重命名。__\n\n**__示例：__**\n```https://example.com/AFileWithDirectDownloadLink.mkv | 新文件名.mkv```\n\n**Telegram 文件**\n__发送 Telegram 文件给我即可上传到你的 Google Drive。注意：Telegram 下载速度较慢，大文件可能需要更长时间。__\n\n**yt-dlp 支持**\n__使用 yt-dlp 下载。\n命令：/{BotCommands.YtDl[0]} (YouTube 链接或任意 yt-dlp 支持的链接)__",
 
         f"**自定义上传文件夹**\n__想将文件保存到自定义文件夹或 TeamDrive？\n使用 /{BotCommands.SetFolder[0]} (文件夹链接) 设置自定义上传目录。\n之后的所有文件都会保存到你提供的文件夹中。__",
 
@@ -96,7 +96,7 @@ class Messages:
 
     EMPTY_TRASH = "🗑️🚮**垃圾桶已清空！**"
 
-    PROVIDE_YTDL_LINK = "❗**请提供有效的 YouTube-DL 支持链接。**"
+    PROVIDE_YTDL_LINK = "❗**请提供有效的 yt-dlp 支持链接。**"
 
     PROVIDE_DIRECT_LINK = (
         "❗**Please provide a direct download link.**\n__Usage - /{} (Link | Optional File Name)__"

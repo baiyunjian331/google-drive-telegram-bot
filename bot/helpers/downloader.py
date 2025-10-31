@@ -1,10 +1,10 @@
 import os
 import wget
 import glob
-import youtube_dl
+import yt_dlp
 from pySmartDL import SmartDL
 from urllib.error import HTTPError
-from youtube_dl import DownloadError
+from yt_dlp.utils import DownloadError
 from bot import DOWNLOAD_DIRECTORY, LOGGER
 
 
@@ -32,13 +32,13 @@ def download_file(url, dl_path):
 
 def utube_dl(link):
   ytdl_opts = {
-    'outtmpl' : os.path.join(DOWNLOAD_DIRECTORY, '%(title)s'),
-    'noplaylist' : True,
+    'outtmpl': os.path.join(DOWNLOAD_DIRECTORY, '%(title)s.%(ext)s'),
+    'noplaylist': True,
     'logger': LOGGER,
     'format': 'bestvideo+bestaudio/best',
     'geo_bypass_country': 'IN'
   }
-  with youtube_dl.YoutubeDL(ytdl_opts) as ytdl:
+  with yt_dlp.YoutubeDL(ytdl_opts) as ytdl:
     try:
       meta = ytdl.extract_info(link, download=True)
     except DownloadError as e:
