@@ -35,6 +35,22 @@ Open every conflicted file and search for the conflict markers (`<<<<<<<`, `====
 - Any new instructions or fixes from the upstream branch are preserved.
 - Duplicate guidance or outdated English text is removed.
 
+For quick reference, here is what each file should look like once the markers are
+gone:
+
+- **`README.md`** – keep the feature checklist item `中文界面提示与指引。` and retain
+  the Replit deployment section introduced upstream. If the README pulled in
+  updates from `main`, make sure both the English content and the localized bullet
+  coexist cleanly without duplicated headings.
+- **`bot/config.py`** – ensure the `Messages` class contains the full set of
+  Chinese prompts (欢迎语、帮助文本、报错提示等). No raw conflict markers or leftover
+  English fallbacks should remain.
+- **`bot/plugins/authorize.py`** – keep the localized replies for `/auth` and the
+  `_token` handler, including the friendly messages for missing codes or flows.
+- **`bot/plugins/download.py`** – keep the Chinese guidance messages for missing
+  URLs and download status updates, along with the helper that parses custom file
+  names.
+
 Edit the files to remove the conflict markers and polish the final Chinese wording
 if needed. The `download.py` and `authorize.py` handlers should continue to use the
 localized prompts you recently introduced.
