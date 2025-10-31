@@ -1,5 +1,7 @@
-import os
 import logging
+import os
+from pathlib import Path
+from typing import Iterator, Optional
 
 logging.basicConfig(
     level=logging.INFO,
@@ -8,6 +10,42 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger(__name__)
 logging.getLogger("pyrogram").setLevel(logging.WARNING)
+
+
+def _persistent_directories() -> Iterator[Path]:
+    """Yield preferred locations for writable persistent storage."""
+    for env_var in ("HF_DATA_DIR", "PERSISTENT_DIR", "DATA_DIR"):
+        value = os.environ.get(env_var)
+        if value:
+            yield Path(value).expanduser()
+    yield Path.cwd() / "data"
+
+
+def _prepare_database_url(raw_url: Optional[str]) -> str:
+    """Normalize the configured DATABASE_URL or build a SQLite fallback."""
+    url = (raw_url or "").strip()
+    if not url:
+        for base_dir in _persistent_directories():
+            try:
+                base_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                LOGGER.warning(
+                    "Unable to use %s for SQLite fallback storage: %s", base_dir, exc
+                )
+                continue
+            default_sqlite_path = base_dir / "gdrive.db"
+            LOGGER.warning(
+                "DATABASE_URL not provided. Falling back to local SQLite database at %s",
+                default_sqlite_path,
+            )
+            return f"sqlite:///{default_sqlite_path}"
+        raise SystemExit("No suitable location found for SQLite fallback database")
+
+    if url.startswith("postgres://"):
+        LOGGER.info("Normalizing postgres:// DATABASE_URL to postgresql://")
+        url = "postgresql://" + url[len("postgres://"):]
+
+    return url
 
 
 ENV = bool(os.environ.get('ENV', False))
@@ -34,19 +72,7 @@ try:
         G_DRIVE_CLIENT_ID = config.G_DRIVE_CLIENT_ID
         G_DRIVE_CLIENT_SECRET = config.G_DRIVE_CLIENT_SECRET
 
-    if not DATABASE_URL:
-        preferred_data_dir = (
-            os.environ.get("HF_DATA_DIR")
-            or os.environ.get("PERSISTENT_DIR")
-            or os.getcwd()
-        )
-        os.makedirs(preferred_data_dir, exist_ok=True)
-        default_sqlite_path = os.path.join(preferred_data_dir, "gdrive.db")
-        DATABASE_URL = f"sqlite:///{default_sqlite_path}"
-        LOGGER.warning(
-            'DATABASE_URL not provided. Falling back to local SQLite database at %s',
-            default_sqlite_path
-        )
+    DATABASE_URL = _prepare_database_url(DATABASE_URL)
 
     raw_sudo_users = SUDO_USERS or ""
     try:

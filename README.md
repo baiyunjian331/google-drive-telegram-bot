@@ -37,7 +37,7 @@
    | `SUDO_USERS` | `12345 67890` | （可选）以空格分隔的 Telegram 用户 ID 列表。|
    | `G_DRIVE_CLIENT_ID` | `xxxxxxxx.apps.googleusercontent.com` | （可选）Google OAuth 客户端 ID。|
    | `G_DRIVE_CLIENT_SECRET` | `your-secret` | （可选）Google OAuth 客户端密钥。|
-   | `DATABASE_URL` | `postgresql://...` | （可选）自定义数据库连接串；若留空会自动使用 `/data/gdrive.db` 的 SQLite。|
+   | `DATABASE_URL` | `postgresql://...` | （可选）自定义数据库连接串；若留空会自动使用持久化目录中的 `gdrive.db`（优先 `/data`、`$PERSISTENT_DIR`、`$DATA_DIR`，否则回退到仓库内的 `data/` 目录）。|
 3. Hugging Face 会自动根据 `Dockerfile` 构建镜像，构建完成后 Space 会通过 `python3 -m bot` 启动机器人。若未提供 `DATABASE_URL`，日志中会出现提示，表示已自动创建 SQLite 数据库（默认存放于持久化目录 `/data`）。
 4. 需要更新配置时直接修改 Variables 并重新启动 Space 即可。
 
