@@ -1,0 +1,5 @@
+run = "python3 -m bot"
+language = "python3"
+
+[env]
+ENV = "1"
