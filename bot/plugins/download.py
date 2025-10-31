@@ -9,28 +9,51 @@ from bot import DOWNLOAD_DIRECTORY, LOGGER
 from bot.config import Messages, BotCommands
 from pyrogram.errors import FloodWait, RPCError
 
+def _extract_link_and_filename(message):
+  text = (message.text or "").strip()
+  command_parts = message.command or []
+
+  argument_text = ""
+  if command_parts and len(command_parts) > 1:
+    argument_text = " ".join(command_parts[1:])
+  elif command_parts:
+    _, _, remainder = text.partition(" ")
+    argument_text = remainder
+  else:
+    argument_text = text
+
+  argument_text = argument_text.strip()
+  if not argument_text:
+    return None, None
+
+  filename = None
+  if "|" in argument_text:
+    link_part, filename_part = argument_text.split("|", 1)
+    argument_text = link_part.strip()
+    filename_part = filename_part.strip()
+    if filename_part:
+      filename = os.path.basename(filename_part)
+  link = argument_text.strip()
+
+  if not link:
+    return None, None
+
+  return link, filename
+
+
 @Client.on_message(filters.private & filters.incoming & filters.text & (filters.command(BotCommands.Download) | filters.regex('^(ht|f)tp*')) & CustomFilters.auth_users)
 def _download(client, message):
   user_id = message.from_user.id
   if not message.media:
-    link = None
-    if message.command:
-      text = message.text or ""
-      parts = text.split(None, 1)
-      if len(parts) > 1:
-        link = parts[1]
-      elif len(message.command) > 1:
-        link = " ".join(message.command[1:])
-    else:
-      link = message.text
+    link, filename = _extract_link_and_filename(message)
 
-    if not link or not link.strip():
+    if not link:
       message.reply_text(
-          Messages.PROVIDE_DIRECT_LINK.format(BotCommands.Download[0]),
-          quote=True,
+        Messages.PROVIDE_DIRECT_LINK.format(BotCommands.Download[0]),
+        quote=True,
       )
       return
-    link = link.strip()
+
     sent_message = message.reply_text('🕵️**正在检查链接...**', quote=True)
     if 'drive.google.com' in link:
       sent_message.edit(Messages.CLONING.format(link))
@@ -38,18 +61,11 @@ def _download(client, message):
       msg = GoogleDrive(user_id).clone(link)
       sent_message.edit(msg)
     else:
-      if '|' in link:
-        link, filename = link.split('|', 1)
-        link = link.strip()
-        filename = filename.strip()
-        if filename:
-          dl_path = os.path.join(DOWNLOAD_DIRECTORY, filename)
-        else:
-          filename = os.path.basename(link)
-          dl_path = DOWNLOAD_DIRECTORY
+      dl_path = DOWNLOAD_DIRECTORY
+      if filename:
+        dl_path = os.path.join(DOWNLOAD_DIRECTORY, filename)
       else:
         filename = os.path.basename(link)
-        dl_path = DOWNLOAD_DIRECTORY
       LOGGER.info(f'Download:{user_id}: {link}')
       sent_message.edit(Messages.DOWNLOADING.format(link))
       result, file_path = download_file(link, dl_path)
