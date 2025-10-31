@@ -1,7 +1,9 @@
+import asyncio
 import os
 from typing import Optional
 
 from pyrogram import Client
+from pyrogram.errors import BadMsgNotification
 
 import bot
 from bot import (
@@ -49,6 +51,27 @@ def _ensure_download_directory() -> str:
         raise
 
 
+def _delete_session_artifacts(session_name: str) -> None:
+    base_paths = {
+        os.path.join(DOWNLOAD_DIRECTORY, f"{session_name}.session"),
+        os.path.join(DEFAULT_DOWNLOAD_DIRECTORY, f"{session_name}.session"),
+    }
+    # Include journal variants used by sqlite-based storage
+    extra_paths = set()
+    for base_path in base_paths:
+        extra_paths.add(f"{base_path}-journal")
+        extra_paths.add(f"{base_path}.journal")
+    candidates = base_paths.union(extra_paths)
+
+    for path in candidates:
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+                LOGGER.warning("Removed stale session file at %s", path)
+        except OSError as exc:
+            LOGGER.error("Failed to remove session file %s: %s", path, exc)
+
+
 def create_client(session_name: str = "G-DriveBot") -> Client:
     """
     Lazily instantiate the Pyrogram client so both CLI and web runtimes
@@ -68,10 +91,14 @@ def create_client(session_name: str = "G-DriveBot") -> Client:
     )
 
 
-def get_client(session_name: str = "G-DriveBot") -> Client:
+def _set_client(client: Optional[Client]) -> None:
     global _client
+    _client = client
+
+
+def get_client(session_name: str = "G-DriveBot") -> Client:
     if _client is None:
-        _client = create_client(session_name=session_name)
+        _set_client(create_client(session_name=session_name))
     return _client
 
 
@@ -90,11 +117,32 @@ async def start_bot() -> Client:
     Async helper for runtimes (e.g. FastAPI) that already manage an event loop.
     Ensures we only call `Client.start()` once.
     """
-    client = get_client(session_name="G-DriveBot")
-    if not getattr(client, "is_connected", False):
+    session_name = "G-DriveBot"
+    attempts = 0
+
+    while attempts < 2:
+        client = get_client(session_name=session_name)
+        if getattr(client, "is_connected", False):
+            return client
+
         LOGGER.info("Starting bot in async context.")
-        await client.start()
-    return client
+        try:
+            await client.start()
+            return client
+        except BadMsgNotification as exc:
+            attempts += 1
+            if exc.value == 16 and attempts < 2:
+                LOGGER.warning(
+                    "Telegram reported a time desynchronization (BadMsgNotification). "
+                    "Clearing local session data and retrying."
+                )
+                await asyncio.sleep(1)
+                _delete_session_artifacts(session_name)
+                _set_client(None)
+                continue
+            raise
+
+    raise RuntimeError("Failed to start Pyrogram client after retrying session reset.")
 
 
 async def stop_bot() -> None:
