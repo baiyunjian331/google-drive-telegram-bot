@@ -42,7 +42,7 @@ def _download(client, message):
         link, filename = link.split('|', 1)
         link = link.strip()
         filename = filename.strip()
-        dl_path = os.path.join(f'{DOWNLOAD_DIRECTORY}/{filename}')
+        dl_path = os.path.join(DOWNLOAD_DIRECTORY, filename)
       else:
         link = link.strip()
         filename = os.path.basename(link)
