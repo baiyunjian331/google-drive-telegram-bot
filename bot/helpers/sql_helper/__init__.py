@@ -1,95 +1,79 @@
 import importlib
 import logging
 import os
-from typing import Optional
+from typing import Iterable, Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import scoped_session, sessionmaker
+
 
 LOGGER = logging.getLogger(__name__)
-DATABASE_URL = None
-DEFAULT_DATA_DIR = None
 
 
 def _create_session(url_string: str) -> scoped_session:
-  engine_kwargs = {}
+  engine_kwargs = {"pool_pre_ping": True}
   url = make_url(url_string)
   if url.drivername == 'sqlite':
       db_path = url.database or ''
-      db_dir = os.path.dirname(db_path)
-      if db_path and db_dir and not os.path.isdir(db_dir):
-          os.makedirs(db_dir, exist_ok=True)
+      if db_path:
+          db_dir = os.path.dirname(db_path)
+          if db_dir and not os.path.isdir(db_dir):
+              os.makedirs(db_dir, exist_ok=True)
       engine_kwargs["connect_args"] = {"check_same_thread": False}
-  engine_kwargs["pool_pre_ping"] = True
   engine = create_engine(url_string, **engine_kwargs)
   BASE.metadata.bind = engine
   BASE.metadata.create_all(engine)
   return scoped_session(sessionmaker(bind=engine, autoflush=False))
 
 
-def _sqlite_fallback_url(original_url: str) -> Optional[str]:
+def _candidate_database_urls(base_url: str, default_data_dir: str) -> Iterable[str]:
+  yield base_url
   try:
-    url = make_url(original_url)
+    parsed = make_url(base_url)
   except Exception:
-    return None
-  if url.drivername != 'sqlite':
-    return None
-  fallback_path = os.path.join(DEFAULT_DATA_DIR, "gdrive.db")
+    return
+  if parsed.drivername != 'sqlite':
+    return
+  fallback_path = os.path.join(default_data_dir, "gdrive.db")
   fallback_url = f"sqlite:///{fallback_path}"
-  if fallback_url == original_url:
-    return None
-  return fallback_url
+  if fallback_url != base_url:
+    yield fallback_url
 
 
 def start() -> scoped_session:
-  global DATABASE_URL, DEFAULT_DATA_DIR, LOGGER
+  global LOGGER
 
   bot_module = importlib.import_module("bot")
-  if DEFAULT_DATA_DIR is None:
-    DEFAULT_DATA_DIR = getattr(bot_module, "DEFAULT_DATA_DIR", os.getcwd())
-  if LOGGER is logging.getLogger(__name__):
-    LOGGER = getattr(bot_module, "LOGGER", LOGGER)
-  if DATABASE_URL is None:
-    DATABASE_URL = getattr(bot_module, "DATABASE_URL")
+  default_data_dir = getattr(bot_module, "DEFAULT_DATA_DIR", os.getcwd())
+  base_url = getattr(bot_module, "DATABASE_URL")
+  LOGGER = getattr(bot_module, "LOGGER", LOGGER)
 
-  candidate_urls = [DATABASE_URL]
-  fallback_url = _sqlite_fallback_url(DATABASE_URL)
-  if fallback_url:
-    candidate_urls.append(fallback_url)
-
+  candidates = list(_candidate_database_urls(base_url, default_data_dir))
   last_exc: Optional[Exception] = None
-  for idx, candidate in enumerate(candidate_urls):
-    is_last_attempt = idx == len(candidate_urls) - 1
+
+  for idx, candidate in enumerate(candidates):
+    is_last_attempt = idx == len(candidates) - 1
     try:
       session = _create_session(candidate)
-      current_bot_url = getattr(bot_module, "DATABASE_URL", candidate)
-      if candidate != current_bot_url:
+      if candidate != base_url:
         LOGGER.warning(
             'DATABASE_URL "%s" is not writable. Falling back to "%s".',
-            current_bot_url,
+            base_url,
             candidate,
         )
         setattr(bot_module, "DATABASE_URL", candidate)
-        DATABASE_URL = candidate
+        base_url = candidate
       return session
-    except OSError as exc:
-      last_exc = exc
-      if is_last_attempt:
-        LOGGER.error('Unable to prepare database path for "%s": %s', candidate, exc)
-      else:
-        LOGGER.warning('Unable to prepare database path for "%s": %s', candidate, exc)
     except Exception as exc:
       last_exc = exc
-      if is_last_attempt:
-        LOGGER.error('Failed to initialize database engine with url %s: %s', candidate, exc)
-      else:
-        LOGGER.warning('Failed to initialize database engine with url %s: %s', candidate, exc)
+      log = LOGGER.error if is_last_attempt else LOGGER.warning
+      log('Failed to initialize database engine with url %s: %s', candidate, exc)
 
   LOGGER.error(
       'Exiting because the database engine could not be initialized after trying %s.',
-      candidate_urls,
+      candidates,
   )
   if last_exc:
     raise SystemExit(1) from last_exc
