@@ -50,8 +50,8 @@ have a Replit account.
    ```sh
    python3 -m bot
    ```
-   The console will display the bot logs. Leave this tab open while testing commands from
-   Telegram to confirm everything is working.
+The console will display the bot logs. Leave this tab open while testing commands from
+Telegram to confirm everything is working.
 5. **Keep the bot running.** Replit stops inactive Repls after some time unless you enable a
    persistent option:
    - Upgrade to **Replit Hacker** and turn on **Always On** from the Repl sidebar to keep the
@@ -102,9 +102,16 @@ pip3 install -r requirements.txt
 - `DOWNLOAD_DIRECTORY` - Custom path for downloads. Must end with a forward `/` slash. (Default to `./downloads/`)
 
 ### Deploy 
-```sh 
+```sh
 python3 -m bot
 ```
+
+## Development Notes
+
+### Resolving the "Switch user prompts to Chinese #2" merge conflicts
+如果你在本地遇到 `Switch user prompts to Chinese #2` 分支的合并冲突，请按照
+[详细指南](docs/merge-conflict-resolution.md) 的步骤操作：检查冲突文件、处理
+`<<<<<<<`/`=======`/`>>>>>>>` 标记、保留最新的中文提示，然后提交并推送更新。
 
 ## Credits
 - [Dan](https://github.com/delivrance) for creating [PyroGram](https://pyrogram.org)
