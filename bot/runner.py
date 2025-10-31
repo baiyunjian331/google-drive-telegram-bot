@@ -1,6 +1,7 @@
 import asyncio
 import os
 import re
+from concurrent.futures import Future
 from typing import Optional
 
 from pyrogram import Client
@@ -18,6 +19,7 @@ from bot import (
 
 
 _client: Optional[Client] = None
+_client_run_future: Optional[Future] = None
 
 
 def _ensure_download_directory() -> str:
@@ -50,27 +52,6 @@ def _ensure_download_directory() -> str:
             LOGGER.info("Using fallback download directory at %s", fallback)
             return fallback
         raise
-
-
-def _delete_session_artifacts(session_name: str) -> None:
-    base_paths = {
-        os.path.join(DOWNLOAD_DIRECTORY, f"{session_name}.session"),
-        os.path.join(DEFAULT_DOWNLOAD_DIRECTORY, f"{session_name}.session"),
-    }
-    # Include journal variants used by sqlite-based storage
-    extra_paths = set()
-    for base_path in base_paths:
-        extra_paths.add(f"{base_path}-journal")
-        extra_paths.add(f"{base_path}.journal")
-    candidates = base_paths.union(extra_paths)
-
-    for path in candidates:
-        try:
-            if os.path.exists(path):
-                os.remove(path)
-                LOGGER.warning("Removed stale session file at %s", path)
-        except OSError as exc:
-            LOGGER.error("Failed to remove session file %s: %s", path, exc)
 
 
 def create_client(session_name: str = "G-DriveBot") -> Client:
@@ -113,48 +94,95 @@ def run_bot() -> None:
     LOGGER.info("Bot stopped!")
 
 
-async def start_bot() -> Client:
-    """
-    Async helper for runtimes (e.g. FastAPI) that already manage an event loop.
-    Ensures we only call `Client.start()` once.
-    """
+def _extract_bad_msg_code(exc: BadMsgNotification) -> Optional[int]:
+    for attr in ("value", "code"):
+        value = getattr(exc, attr, None)
+        if value is not None:
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                continue
+    match = re.search(r"\[(\d+)\]", str(exc))
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def _delete_session_artifacts(session_name: str) -> None:
+    candidates = {
+        os.path.join(DOWNLOAD_DIRECTORY, f"{session_name}.session"),
+        os.path.join(DEFAULT_DOWNLOAD_DIRECTORY, f"{session_name}.session"),
+    }
+    extra = set()
+    for base in list(candidates):
+        extra.add(f"{base}-journal")
+        extra.add(f"{base}.journal")
+    candidates.update(extra)
+
+    for path in candidates:
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+                LOGGER.warning("Removed stale session file at %s", path)
+        except OSError as exc:
+            LOGGER.error("Failed to remove session file %s: %s", path, exc)
+
+
+def _run_client_blocking() -> None:
     session_name = "G-DriveBot"
     attempts = 0
 
     while attempts < 2:
         client = get_client(session_name=session_name)
-        if getattr(client, "is_connected", False):
-            return client
-
-        LOGGER.info("Starting bot in async context.")
         try:
-            await client.start()
-            return client
+            client.run()
+            return
         except BadMsgNotification as exc:
             attempts += 1
-            error_code = getattr(exc, "value", None)
-            if error_code is None:
-                error_code = getattr(exc, "code", None)
-            if error_code is None:
-                match = re.search(r"\[(\d+)\]", str(exc))
-                if match:
-                    error_code = int(match.group(1))
-            if error_code == 16 and attempts < 2:
+            code = _extract_bad_msg_code(exc)
+            if code == 16 and attempts < 2:
                 LOGGER.warning(
                     "Telegram reported a time desynchronization (BadMsgNotification). "
                     "Clearing local session data and retrying."
                 )
-                await asyncio.sleep(1)
                 _delete_session_artifacts(session_name)
                 _set_client(None)
                 continue
             raise
 
-    raise RuntimeError("Failed to start Pyrogram client after retrying session reset.")
+
+def _stop_client_blocking() -> None:
+    client = get_client()
+    if getattr(client, "is_connected", False):
+        client.stop()
+
+
+async def start_bot() -> Client:
+    """
+    Async helper for runtimes (e.g. FastAPI) that already manage an event loop.
+    Ensures we only call `Client.start()` once.
+    """
+    global _client_run_future
+    client = get_client(session_name="G-DriveBot")
+    if _client_run_future and not _client_run_future.done():
+        return client
+
+    loop = asyncio.get_running_loop()
+    LOGGER.info("Starting bot in background thread.")
+    _client_run_future = loop.run_in_executor(None, _run_client_blocking)
+    await asyncio.sleep(0.1)
+    return client
 
 
 async def stop_bot() -> None:
     client = get_client()
-    if getattr(client, "is_connected", False):
+    global _client_run_future
+    if _client_run_future and not _client_run_future.done():
         LOGGER.info("Stopping bot from async context.")
-        await client.stop()
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, _stop_client_blocking)
+        try:
+            await asyncio.wait_for(asyncio.wrap_future(_client_run_future), timeout=10)
+        except Exception:
+            LOGGER.warning("Timed out waiting for bot thread to terminate.")
+        _client_run_future = None
