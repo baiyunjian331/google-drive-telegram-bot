@@ -55,6 +55,38 @@ Edit the files to remove the conflict markers and polish the final Chinese wordi
 if needed. The `download.py` and `authorize.py` handlers should continue to use the
 localized prompts you recently introduced.
 
+### Handling competing line changes
+
+When Git reports *"both modified"* or *"Merge conflict in … (content):
+Merge conflict in … (content): Merge conflict (content): merge conflict in …"* it
+means both branches edited the same lines. Use the three-way diff views to inspect
+each version before choosing what to keep:
+
+```sh
+git diff --base bot/plugins/authorize.py    # original file before either change
+git diff --ours bot/plugins/authorize.py    # your branch (localized Chinese prompts)
+git diff --theirs bot/plugins/authorize.py  # upstream branch you merged in
+```
+
+For a quick look at just the conflicting hunks inside your editor, you can also run
+`git mergetool` or rely on IDE merge tools such as VS Code's *Accept Current/Accept
+Incoming* buttons. Keep the localized Chinese copy from your branch, fold in any
+upstream wording or fixes, and delete the conflict markers.
+
+If you determine that an entire file should prefer one side, you can accept it all at
+once using:
+
+```sh
+# Keep your localized version and discard upstream changes for this file
+git checkout --ours bot/plugins/download.py
+
+# Or keep the upstream version and discard your edits
+git checkout --theirs bot/plugins/download.py
+```
+
+Afterwards reapply the necessary Chinese translations (if any were overwritten), save
+the file, and stage it again with `git add`.
+
 ## 3. Stage and commit the resolution
 
 After every marker has been removed, stage and commit the files:
