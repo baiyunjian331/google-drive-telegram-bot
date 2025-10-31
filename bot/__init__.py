@@ -33,6 +33,14 @@ try:
     DOWNLOAD_DIRECTORY = config.DOWNLOAD_DIRECTORY
     G_DRIVE_CLIENT_ID = config.G_DRIVE_CLIENT_ID
     G_DRIVE_CLIENT_SECRET = config.G_DRIVE_CLIENT_SECRET
+  if not DATABASE_URL:
+    default_sqlite_path = os.path.join(os.getcwd(), "gdrive.db")
+    DATABASE_URL = f"sqlite:///{default_sqlite_path}"
+    LOGGER.warning(
+        'DATABASE_URL not provided. Falling back to local SQLite database at %s',
+        default_sqlite_path
+    )
+
   raw_sudo_users = SUDO_USERS or ""
   try:
     sudo_users_list = {int(x) for x in raw_sudo_users.split() if x.strip()}
