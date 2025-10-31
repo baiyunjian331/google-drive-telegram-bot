@@ -44,7 +44,7 @@ async def _auth(client, message):
         text=Messages.AUTH_TEXT.format(auth_url),
         quote=True,
         reply_markup=InlineKeyboardMarkup(
-                  [[InlineKeyboardButton("Authorization URL", url=auth_url)]]
+                  [[InlineKeyboardButton("授权链接", url=auth_url)]]
               )
         )
     except Exception as e:
@@ -86,7 +86,7 @@ async def _token(client, message):
     user_id = message.from_user.id
     flow = flows.pop(user_id, None)
     if flow:
-      sent_message = await message.reply_text("🕵️**Checking received code...**", quote=True)
+      sent_message = await message.reply_text("🕵️**正在验证授权代码...**", quote=True)
       try:
         creds = flow.step2_exchange(token)
         gDriveDB._set(user_id, creds)
