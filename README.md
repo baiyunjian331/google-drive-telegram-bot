@@ -24,6 +24,51 @@
 ### Deploy on [Heroku](https://heroku.com)
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 
+### Deploy on Replit
+Replit lets you host the bot in a browser-based workspace. The steps below assume you already
+have a Replit account.
+
+1. **Create or import the project.**
+   - Visit [replit.com](https://replit.com) and click **Create Repl**.
+   - Choose the **Python** template, or select **Import from GitHub** and paste this repository
+     URL to clone it directly. If you start from a blank Python Repl, delete the default files
+     and run `git clone https://github.com/viperadnan-git/google-drive-telegram-bot` in the
+     Shell panel.
+2. **Install dependencies.** Open the **Shell** tab and run:
+   ```sh
+   pip install -r requirements.txt
+   ```
+   Replit will automatically cache the installed packages. If the install is interrupted, rerun
+   the command until it completes without errors.
+3. **Configure environment secrets.**
+   - Click the **Tools → Secrets** sidebar (the padlock icon).
+   - Add each required configuration value (see the [Configuration Values](#configuration-values)
+     section) as a secret. The secret name becomes the environment variable inside the Repl.
+   - For values that include quotes or special characters, paste them exactly as provided—Replit
+     stores the raw string for you.
+4. **Launch the bot.** In the Shell panel, start the bot with:
+   ```sh
+   python3 -m bot
+   ```
+   The console will display the bot logs. Leave this tab open while testing commands from
+   Telegram to confirm everything is working.
+5. **Keep the bot running.** Replit stops inactive Repls after some time unless you enable a
+   persistent option:
+   - Upgrade to **Replit Hacker** and turn on **Always On** from the Repl sidebar to keep the
+     process alive.
+   - Alternatively, use the **Deployments** feature (Static/Autoscale) to run the bot as a
+     background service.
+   - If neither option is available, consider an external uptime monitor (e.g., UptimeRobot)
+     that pings a lightweight web endpoint you expose via the bot to prevent sleeping.
+6. **Troubleshooting tips.**
+   - If the Repl restarts unexpectedly, review the **Shell** logs for Python exceptions or
+     missing environment variables.
+   - Use `pip install --upgrade pip` when encountering dependency build errors.
+   - Ensure `python3 -m bot` is running in the foreground; closing the Shell tab stops the bot
+     unless Always On or Deployments is configured.
+   - Replit containers have limited storage; periodically clean the `downloads/` directory or
+     connect an external storage solution if you hit the quota.
+
 ### Installation
 - Install required modules.
 ```sh
