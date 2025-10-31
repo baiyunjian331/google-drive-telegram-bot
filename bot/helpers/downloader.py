@@ -19,7 +19,13 @@ def download_file(url, dl_path):
   except Exception as error:
     try:
       filename = wget.download(url, dl_path)
-      return True, os.path.join(f"{DOWNLOAD_DIRECTORY}/{filename}")
+      if os.path.isabs(filename):
+        return True, filename
+      absolute_path = os.path.abspath(filename)
+      download_root = os.path.abspath(DOWNLOAD_DIRECTORY)
+      if absolute_path.startswith(download_root):
+        return True, absolute_path
+      return True, os.path.join(download_root, os.path.basename(filename))
     except HTTPError:
       return False, error
 

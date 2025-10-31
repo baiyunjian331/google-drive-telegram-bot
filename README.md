@@ -11,6 +11,7 @@
 - [X] Delete Google Drive Files.
 - [X] Empty Google Drive trash.
 - [X] youtube-dl support.
+- [X] Bilingual (English & Chinese) guidance for download links.
 
 ## ToDo 
 - [ ] Handle more exceptions.

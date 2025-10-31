@@ -16,7 +16,7 @@ from bot.helpers.utils import CustomFilters
 OAUTH_SCOPE = "https://www.googleapis.com/auth/drive"
 REDIRECT_URI = "http://localhost/"
 
-flow = None
+flows = {}
 
 @Client.on_message(filters.private & filters.incoming & filters.command(BotCommands.Authorize))
 async def _auth(client, message):
@@ -27,7 +27,6 @@ async def _auth(client, message):
     gDriveDB._set(user_id, creds)
     await message.reply_text(Messages.ALREADY_AUTH, quote=True)
   else:
-    global flow
     try:
       flow = OAuth2WebServerFlow(
               G_DRIVE_CLIENT_ID,
@@ -38,6 +37,7 @@ async def _auth(client, message):
               access_type='offline',
               prompt='consent'
       )
+      flows[user_id] = flow
       auth_url = flow.step1_get_authorize_url()
       LOGGER.info(f'AuthURL:{user_id}')
       await message.reply_text(
@@ -63,24 +63,40 @@ def _revoke(client, message):
 
 @Client.on_message(filters.private & filters.incoming & filters.text & ~CustomFilters.auth_users)
 async def _token(client, message):
-  code = message.text.split("?code=")[1].split("&")[0]
-  token = code.split()[-1]
-  WORD = len(token)
-  if WORD == 73 and token[1] == "/":
+  text = (message.text or "").strip()
+  code = None
+
+  if "?code=" in text:
+    try:
+      code = text.split("?code=", 1)[1].split("&", 1)[0]
+    except IndexError:
+      code = None
+  elif text:
+    code = text.split()[-1]
+
+  if not code:
+    await message.reply_text(Messages.PROVIDE_AUTH_CODE, quote=True)
+    return
+
+  token = code.strip().split()[-1]
+  allowed_prefixes = ("4/", "1/")
+
+  if token and token.startswith(allowed_prefixes):
     creds = None
-    global flow
+    user_id = message.from_user.id
+    flow = flows.pop(user_id, None)
     if flow:
+      sent_message = await message.reply_text("🕵️**Checking received code...**", quote=True)
       try:
-        user_id = message.from_user.id
-        sent_message = await message.reply_text("🕵️**Checking received code...**", quote=True)
-        creds = flow.step2_exchange(code)
+        creds = flow.step2_exchange(token)
         gDriveDB._set(user_id, creds)
         LOGGER.info(f'AuthSuccess: {user_id}')
         await sent_message.edit(Messages.AUTH_SUCCESSFULLY)
-        flow = None
       except FlowExchangeError:
         await sent_message.edit(Messages.INVALID_AUTH_CODE)
       except Exception as e:
         await sent_message.edit(f"**ERROR:** ```{e}```")
     else:
-        await sent_message.edit(Messages.FLOW_IS_NONE, quote=True)
+      await message.reply_text(Messages.FLOW_IS_NONE, quote=True)
+  else:
+    await message.reply_text(Messages.INVALID_AUTH_CODE, quote=True)
