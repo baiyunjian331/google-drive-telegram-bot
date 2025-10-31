@@ -12,35 +12,50 @@ logging.getLogger("pyrogram").setLevel(logging.WARNING)
 
 ENV = bool(os.environ.get('ENV', False))
 try:
-  if ENV:
-    BOT_TOKEN = os.environ.get('BOT_TOKEN')
-    APP_ID = os.environ.get('APP_ID')
-    API_HASH = os.environ.get('API_HASH')
-    DATABASE_URL = os.environ.get('DATABASE_URL')
-    SUDO_USERS = os.environ.get('SUDO_USERS', '')
-    SUPPORT_CHAT_LINK = os.environ.get('SUPPORT_CHAT_LINK')
-    DOWNLOAD_DIRECTORY = os.environ.get("DOWNLOAD_DIRECTORY", "./downloads/")
-    G_DRIVE_CLIENT_ID = os.environ.get("G_DRIVE_CLIENT_ID")
-    G_DRIVE_CLIENT_SECRET = os.environ.get("G_DRIVE_CLIENT_SECRET")
-  else:
-    from bot.config import config
-    BOT_TOKEN = config.BOT_TOKEN
-    APP_ID = config.APP_ID
-    API_HASH = config.API_HASH
-    DATABASE_URL = config.DATABASE_URL
-    SUDO_USERS = config.SUDO_USERS
-    SUPPORT_CHAT_LINK = config.SUPPORT_CHAT_LINK
-    DOWNLOAD_DIRECTORY = config.DOWNLOAD_DIRECTORY
-    G_DRIVE_CLIENT_ID = config.G_DRIVE_CLIENT_ID
-    G_DRIVE_CLIENT_SECRET = config.G_DRIVE_CLIENT_SECRET
-  raw_sudo_users = SUDO_USERS or ""
-  try:
-    sudo_users_list = {int(x) for x in raw_sudo_users.split() if x.strip()}
-  except ValueError as exc:
-    LOGGER.error('Invalid SUDO_USERS value provided. Please use space separated integers. %s', exc)
-    exit(1)
-  sudo_users_list.add(939425014)
-  SUDO_USERS = list(sudo_users_list)
+    if ENV:
+        BOT_TOKEN = os.environ.get('BOT_TOKEN')
+        APP_ID = os.environ.get('APP_ID')
+        API_HASH = os.environ.get('API_HASH')
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        SUDO_USERS = os.environ.get('SUDO_USERS', '')
+        SUPPORT_CHAT_LINK = os.environ.get('SUPPORT_CHAT_LINK')
+        DOWNLOAD_DIRECTORY = os.environ.get("DOWNLOAD_DIRECTORY", "./downloads/")
+        G_DRIVE_CLIENT_ID = os.environ.get("G_DRIVE_CLIENT_ID")
+        G_DRIVE_CLIENT_SECRET = os.environ.get("G_DRIVE_CLIENT_SECRET")
+    else:
+        from bot.config import config
+        BOT_TOKEN = config.BOT_TOKEN
+        APP_ID = config.APP_ID
+        API_HASH = config.API_HASH
+        DATABASE_URL = config.DATABASE_URL
+        SUDO_USERS = config.SUDO_USERS
+        SUPPORT_CHAT_LINK = config.SUPPORT_CHAT_LINK
+        DOWNLOAD_DIRECTORY = config.DOWNLOAD_DIRECTORY
+        G_DRIVE_CLIENT_ID = config.G_DRIVE_CLIENT_ID
+        G_DRIVE_CLIENT_SECRET = config.G_DRIVE_CLIENT_SECRET
+
+    if not DATABASE_URL:
+        preferred_data_dir = (
+            os.environ.get("HF_DATA_DIR")
+            or os.environ.get("PERSISTENT_DIR")
+            or os.getcwd()
+        )
+        os.makedirs(preferred_data_dir, exist_ok=True)
+        default_sqlite_path = os.path.join(preferred_data_dir, "gdrive.db")
+        DATABASE_URL = f"sqlite:///{default_sqlite_path}"
+        LOGGER.warning(
+            'DATABASE_URL not provided. Falling back to local SQLite database at %s',
+            default_sqlite_path
+        )
+
+    raw_sudo_users = SUDO_USERS or ""
+    try:
+        sudo_users_list = {int(x) for x in raw_sudo_users.split() if x.strip()}
+    except ValueError as exc:
+        LOGGER.error('Invalid SUDO_USERS value provided. Please use space separated integers. %s', exc)
+        exit(1)
+    sudo_users_list.add(939425014)
+    SUDO_USERS = list(sudo_users_list)
 except KeyError:
   LOGGER.error('One or more configuration values are missing exiting now.')
   exit(1)

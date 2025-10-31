@@ -24,6 +24,23 @@
 ### Deploy on [Heroku](https://heroku.com)
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 
+### Deploy on Hugging Face Spaces
+1. 在 [Hugging Face Spaces](https://huggingface.co/spaces) 创建 **Docker** 类型的 Space，并关联本仓库。
+2. 在 **Variables** 面板新增以下环境变量：
+   | 变量名 | 示例值 | 说明 |
+   | --- | --- | --- |
+   | `ENV` | `1` | 告诉程序读取环境变量作为配置。|
+   | `BOT_TOKEN` | `123456:ABCDEF...` | Telegram BotFather 提供的 Bot Token。|
+   | `APP_ID` | `123456` | [my.telegram.org](https://my.telegram.org/apps) 获取的 API ID。|
+   | `API_HASH` | `0123456789abcdef` | [my.telegram.org](https://my.telegram.org/apps) 获取的 API Hash。|
+   | `SUPPORT_CHAT_LINK` | `https://t.me/your_support_group` | 机器人提供的支持群链接。|
+   | `SUDO_USERS` | `12345 67890` | （可选）以空格分隔的 Telegram 用户 ID 列表。|
+   | `G_DRIVE_CLIENT_ID` | `xxxxxxxx.apps.googleusercontent.com` | （可选）Google OAuth 客户端 ID。|
+   | `G_DRIVE_CLIENT_SECRET` | `your-secret` | （可选）Google OAuth 客户端密钥。|
+   | `DATABASE_URL` | `postgresql://...` | （可选）自定义数据库连接串；若留空会自动使用 `/data/gdrive.db` 的 SQLite。|
+3. Hugging Face 会自动根据 `Dockerfile` 构建镜像，构建完成后 Space 会通过 `python3 -m bot` 启动机器人。若未提供 `DATABASE_URL`，日志中会出现提示，表示已自动创建 SQLite 数据库（默认存放于持久化目录 `/data`）。
+4. 需要更新配置时直接修改 Variables 并重新启动 Space 即可。
+
 ### Deploy on Replit
 1. 在 Replit 上选择 **Create Repl → Import from GitHub**，填写本仓库地址并创建实例。
 2. 等待 Replit 根据 `replit.nix` 构建基础环境（已包含 Python 3.11 与 `ffmpeg` 二进制）。
