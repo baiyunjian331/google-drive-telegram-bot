@@ -62,10 +62,12 @@ class Messages:
     ALREADY_AUTH = "🔒 **Already authorized your Google Drive Account.**\n__Use /revoke to revoke the current account.__\n__Send me a direct link or File to Upload on Google Drive__"
     
     FLOW_IS_NONE = f"❗ **Invalid Code**\n__Run {BotCommands.Authorize[0]} first.__"
-    
+
     AUTH_SUCCESSFULLY = '🔐 **Authorized Google Drive account Successfully.**'
-    
+
     INVALID_AUTH_CODE = '❗ **Invalid Code**\n__The code you have sent is invalid or already used before. Generate new one by the Authorization URL__'
+
+    PROVIDE_AUTH_CODE = f"❗ **Provide the authorization URL or code from /{BotCommands.Authorize[0]}.**\n__Send /{BotCommands.Authorize[0]} to receive the link again, visit it, and share the final redirected URL here.__"
     
     AUTH_TEXT = "⛓️ **To Authorize your Google Drive account visit this [URL]({}) and copy final website same like http://localhost/?code= .**\n__Visit the URL > Allow permissions >  copy full website  > Send it here__"
     
@@ -94,3 +96,8 @@ class Messages:
     EMPTY_TRASH = "🗑️🚮**Trash Emptied Successfully !**"
     
     PROVIDE_YTDL_LINK = "❗**Provide a valid YouTube-DL supported link.**"
+
+    PROVIDE_DIRECT_LINK = (
+        "❗**Provide a direct download link.**\n__Usage - /{} (Link | Optional File Name)__"
+        "\n🇨🇳 **提示：请发送直接下载链接。**\n__用法 - /{} (链接 | 可选文件名)__"
+    )
