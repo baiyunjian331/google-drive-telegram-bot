@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 from typing import Optional
 
 from pyrogram import Client
@@ -131,7 +132,14 @@ async def start_bot() -> Client:
             return client
         except BadMsgNotification as exc:
             attempts += 1
-            if exc.value == 16 and attempts < 2:
+            error_code = getattr(exc, "value", None)
+            if error_code is None:
+                error_code = getattr(exc, "code", None)
+            if error_code is None:
+                match = re.search(r"\[(\d+)\]", str(exc))
+                if match:
+                    error_code = int(match.group(1))
+            if error_code == 16 and attempts < 2:
                 LOGGER.warning(
                     "Telegram reported a time desynchronization (BadMsgNotification). "
                     "Clearing local session data and retrying."
