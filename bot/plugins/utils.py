@@ -28,6 +28,6 @@ def _send_log(client, message):
 def _restart(client, message):
   shutil.rmtree(DOWNLOAD_DIRECTORY)
   LOGGER.info('Deleted DOWNLOAD_DIRECTORY successfully.')
-  message.reply_text('**♻️Restarted Successfully !**', quote=True)
+  message.reply_text('**♻️重启成功！**', quote=True)
   LOGGER.info(f'{message.from_user.id}: Restarting...')
   execl(executable, executable, "-m", "bot")

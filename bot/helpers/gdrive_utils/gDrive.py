@@ -132,7 +132,7 @@ class GoogleDrive:
         err = err.last_attempt.exception()
       err = str(err).replace('>', '').replace('<', '')
       LOGGER.error(err)
-      return f"**ERROR:** ```{err}```"
+      return f"**错误：** ```{err}```"
 
 
   @retry(wait=wait_exponential(multiplier=2, min=3, max=6), stop=stop_after_attempt(5),
@@ -150,7 +150,7 @@ class GoogleDrive:
       filesize = humanbytes(os.path.getsize(file_path))
       body = {
           "name": filename,
-          "description": "Uploaded using @UploadGdriveBot",
+          "description": "通过 @UploadGdriveBot 上传",
           "mimeType": mime_type,
       }
       body["parents"] = [self.__parent_id]
@@ -165,9 +165,9 @@ class GoogleDrive:
           if reason == 'userRateLimitExceeded' or reason == 'dailyLimitExceeded':
             return Messages.RATE_LIMIT_EXCEEDED_MESSAGE
           else:
-            return f"**ERROR:** {reason}"
+            return f"**错误：** {reason}"
       except Exception as e:
-        return f"**ERROR:** ```{e}```"
+        return f"**错误：** ```{e}```"
 
   @retry(wait=wait_exponential(multiplier=2, min=3, max=6), stop=stop_after_attempt(5),
     retry=retry_if_exception_type(HttpError), before=before_log(LOGGER, logging.DEBUG))
@@ -184,7 +184,7 @@ class GoogleDrive:
         if 'notFound' in reason:
           return False, Messages.FILE_NOT_FOUND_MESSAGE.format(file_id)
         else:
-          return False, f"**ERROR:** ```{str(err).replace('>', '').replace('<', '')}```"
+          return False, f"**错误：** ```{str(err).replace('>', '').replace('<', '')}```"
     if str(file.get('mimeType')) == self.__G_DRIVE_DIR_MIME_TYPE:
       return True, file_id
     else:
@@ -208,14 +208,14 @@ class GoogleDrive:
         elif 'insufficientFilePermissions' in reason:
           return Messages.INSUFFICIENT_PERMISSONS.format(file_id)
         else:
-          return f"**ERROR:** ```{str(err).replace('>', '').replace('<', '')}```"
+          return f"**错误：** ```{str(err).replace('>', '').replace('<', '')}```"
       
   def emptyTrash(self):
     try:
       self.__service.files().emptyTrash().execute()
       return Messages.EMPTY_TRASH
     except HttpError as err:
-      return f"**ERROR:** ```{str(err).replace('>', '').replace('<', '')}```"
+      return f"**错误：** ```{str(err).replace('>', '').replace('<', '')}```"
 
 
   def authorize(self, creds):

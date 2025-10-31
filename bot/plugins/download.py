@@ -13,11 +13,25 @@ from pyrogram.errors import FloodWait, RPCError
 def _download(client, message):
   user_id = message.from_user.id
   if not message.media:
-    sent_message = message.reply_text('🕵️**Checking link...**', quote=True)
     if message.command:
-      link = message.command[1]
+      if len(message.command) > 1:
+        link = message.command[1]
+      else:
+        message.reply_text(
+            Messages.PROVIDE_DIRECT_LINK.format(BotCommands.Download[0]),
+            quote=True,
+        )
+        return
     else:
       link = message.text
+    if not link:
+      message.reply_text(
+          Messages.PROVIDE_DIRECT_LINK.format(BotCommands.Download[0]),
+          quote=True,
+      )
+      return
+    link = link.strip()
+    sent_message = message.reply_text('🕵️**正在检查链接...**', quote=True)
     if 'drive.google.com' in link:
       sent_message.edit(Messages.CLONING.format(link))
       LOGGER.info(f'Copy:{user_id}: {link}')
@@ -25,9 +39,9 @@ def _download(client, message):
       sent_message.edit(msg)
     else:
       if '|' in link:
-        link, filename = link.split('|')
+        link, filename = link.split('|', 1)
         link = link.strip()
-        filename.strip()
+        filename = filename.strip()
         dl_path = os.path.join(f'{DOWNLOAD_DIRECTORY}/{filename}')
       else:
         link = link.strip()
@@ -49,7 +63,7 @@ def _download(client, message):
 @Client.on_message(filters.private & filters.incoming & (filters.document | filters.audio | filters.video | filters.photo) & CustomFilters.auth_users)
 def _telegram_file(client, message):
   user_id = message.from_user.id
-  sent_message = message.reply_text('🕵️**Checking File...**', quote=True)
+  sent_message = message.reply_text('🕵️**正在检查文件...**', quote=True)
   if message.document:
     file = message.document
   elif message.video:
@@ -76,7 +90,7 @@ def _telegram_file(client, message):
 def _ytdl(client, message):
   user_id = message.from_user.id
   if len(message.command) > 1:
-    sent_message = message.reply_text('🕵️**Checking Link...**', quote=True)
+    sent_message = message.reply_text('🕵️**正在检查链接...**', quote=True)
     link = message.command[1]
     LOGGER.info(f'YTDL:{user_id}: {link}')
     sent_message.edit(Messages.DOWNLOADING.format(link))

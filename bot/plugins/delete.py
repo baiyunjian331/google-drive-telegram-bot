@@ -8,7 +8,7 @@ from bot import LOGGER
 def _delete(client, message):
   user_id = message.from_user.id
   if len(message.command) > 1 or message.reply_to_message:
-    sent_message = message.reply_text('🕵️**Checking Link...**', quote=True)
+    sent_message = message.reply_text('🕵️**正在检查链接...**', quote=True)
     if len(message.command) > 1:
       link = message.command[1]
     elif message.reply_to_message.entities[1].url:
